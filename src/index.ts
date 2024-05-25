@@ -28,7 +28,7 @@ const novelContentHeaders = {
 };
 
 const ttsCaptchaHeaders = {
-  "User-Agent": "PostmanRuntime/7.37.3",
+  "User-Agent": "PostmanRuntime/7.39.0",
   Accept: "*/*",
   "Cache-Control": "no-cache",
   Host: "ttsmaker.com",
@@ -39,36 +39,35 @@ const ttsCaptchaHeaders = {
 
 // 创建axios实例，配置代理和请求头
 const axiosInstance = axios.create({
-  timeout: 10000,
+  timeout: 30000,
   httpsAgent: proxyAgent,
   headers: ttsCaptchaHeaders,
   responseType: "arraybuffer", // 重要：确保响应类型为arraybuffer以正确处理二进制数据
 });
 
-async function ttsCaptcha() {
+async function ttsCaptcha(ckey: string) {
   return new Promise<string>((resolve, reject) => {
     const attempt = () => {
+      console.log("验证码开始链接");
       axiosInstance
         .get(
-          "https://ttsmaker.com/get_captcha?uuid=23cebccd-d2ce-4624-89a8-a58cb5159b32&captcha_key=1646",
+          `https://ttsmaker.com/get_captcha?uuid=23cebccd-d2ce-4624-89a8-a58cb5159b32&captcha_key=${ckey}`,
           {
             headers: ttsCaptchaHeaders,
           }
         )
         .then((response) => {
-          console.log("发送获取请求图片请求");
+          console.log("验证码接口接通");
           if (response.headers["content-type"] === "image/jpeg") {
             fs.writeFile("captcha.jpg", response.data, (err) => {
               if (err) {
-                return reject("Error writing image to file:" + err);
+                return reject("Error writing image to file");
               }
               analyzeCaptcha()
                 .then((cap) => {
-                  console.log("返回分析结果", cap);
                   resolve(cap);
                 })
-                .catch((error) => {
-                  console.log("返回错误结果", error);
+                .catch(() => {
                   setTimeout(attempt, Math.random() * 10000);
                 });
             });
@@ -163,6 +162,7 @@ function saveContentToFile(
   console.log(`保存文件: ${filePath}`);
 }
 
+// 爬取小说内容
 // 异步函数，用于按顺序执行 fetchContent
 async function runSequentially(): Promise<void> {
   for (let i = 104; i <= 104; i++) {
@@ -185,14 +185,12 @@ function analyzeCaptcha() {
 
     // 获取Python脚本的输出
     pythonProcess.stdout.on("data", (data) => {
+      console.log("python分析脚本输出完成");
       const outText = data.slice(-6, -2).toString();
-      console.log("解析到验证码为", outText);
       const regex = new RegExp("^\\d{4}$");
       if (regex.test(outText)) {
-        console.log("字符串是4个数字");
         resolve(outText as string);
       } else {
-        console.log("字符串不是4个数字");
         reject(new Error("字符串不是4个数字"));
       }
     });
@@ -200,53 +198,68 @@ function analyzeCaptcha() {
 }
 
 // tts处理
-async function ttsHandler(content: string, captcha: string, fileName: string) {
+async function ttsHandler(
+  content: string,
+  ckey: string,
+  captcha: string,
+  fileName: string
+) {
+  console.log("tts开始链接");
   const res = await axiosInstance.post(
     `https://ttsmaker.com/api/create-tts-order`,
+    {
+      user_uuid_text: "23cebccd-d2ce-4624-89a8-a58cb5159b32",
+      user_input_text: content,
+      user_select_language_id: "zh-cn",
+      user_select_announcer_id: "203",
+      user_select_tts_setting_audio_format: "mp3",
+      user_select_tts_setting_speed: "1.15",
+      user_select_tts_setting_volume: "1",
+      user_select_tts_setting_pitch: "1",
+      user_input_captcha_text: captcha,
+      user_input_captcha_key: ckey,
+      user_input_paragraph_pause_time: "0",
+      user_select_tts_voice_high_quality: "0",
+      user_bgm_config: {
+        bgm_switch: true,
+        bgm_sig:
+          "zqWEHqaIcCg76Eui_bqumnPZLxNnLs5mfRDQiWglkqkWWUIV9pwvBQYLXbMEGzYK1v5DpCnYtEzcDrRsz9TD2lMfvBbtchFRmdZQoC18CZSqUlXXvGHVV8EdDlzrP3ZArRtZEbswWaFqDv3-dE1GVwg8QkifEQdFOvulG68kcZut_kGIX4GDyaXrJPHRiZdi6ORTzyAty-ESzmJalX-XBtOAuXyi_mvZZR7RxrsA7kbJKiNCHu9zYN8ilDVcxLEzFulPOg-nkPAVU60D6Cb0UP8rjB4xp7LIgCjOe4QDg2s",
+        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15081.mp3",
+        bgm_public_name: "M500001m0ZHz1UbLgg.mp3",
+        bgm_volume: "4",
+        bgm_loop_count: "-1",
+        bgm_offset: "0",
+        bgm_samplerate: "44100",
+        bgm_channels: "2",
+        bgm_list_count: "1",
+      },
+    },
     {
       headers: {
         Cookie:
           "uuid=23cebccd-d2ce-4624-89a8-a58cb5159b32; cf_clearance=nyTAoObpdDZ_EdEFDgwsoTnV5Din1ZogrtZMtO.SBxA-1716172544-1.0.1.1-rc7MSsqo5giu.C8OSnBiEGUtQpGD8pcOzA8ey4Gri5Qf0zoyLTMRMKJnSY_Dee1X3RIhzapIocPhAS2T0C175Q",
       },
-      data: {
-        user_uuid_text: "23cebccd-d2ce-4624-89a8-a58cb5159b32",
-        user_input_text: content,
-        user_select_language_id: "zh-cn",
-        user_select_announcer_id: "203",
-        user_select_tts_setting_audio_format: "mp3",
-        user_select_tts_setting_speed: "1.15",
-        user_select_tts_setting_volume: "1",
-        user_select_tts_setting_pitch: "1",
-        user_input_captcha_text: captcha,
-        user_input_captcha_key: "1646",
-        user_input_paragraph_pause_time: "0",
-        user_select_tts_voice_high_quality: "0",
-        user_bgm_config: {
-          bgm_switch: true,
-          bgm_sig:
-            "TbSXV_0vcH4F6IUPk55ryyFisIJW4DolbxWLl2u8zQmk-ak1cHva1NG0PRgCGVx1gng0RnG7xM_hgUPQ3q4_hGvyYw_eBJxd06LKUjaRloIq41Z-tSFO8CvG8qifpjk0u7ELu0QEpKWZOnu_kCnDT70Jss-Bx9S81bK8UZ_Hr49N0S5zRgEIuwmsFCdSyz76k_zV_aOklvdEWlR8C0wZ_khLmcIPaJZF4fTMWopeERMLJy7I8gzqNL4qQCCdF9VaAMw7ZxRwAOQnXfsH05Qg-2C6zxEu9eRO6SWEwBfws1c",
-          bgm_id: "dc63e90a-8207-4be8-a535-a580f9c1a245_14952.mp3",
-          bgm_public_name: "M500001m0ZHz1UbLgg.mp3",
-          bgm_volume: "4",
-          bgm_loop_count: "-1",
-          bgm_offset: "0",
-          bgm_samplerate: "44100",
-          bgm_channels: "2",
-          bgm_list_count: "1",
-        },
-      },
+      timeout: 30000,
     }
   );
 
-  if (res.data.status === 200) {
+  // 将 Buffer 转换为字符串
+  const dataStr = Buffer.from(res.data, "binary").toString("utf-8");
+  // 将字符串解析为 JSON 对象
+  const jsonData = JSON.parse(dataStr);
+
+  console.log("tts接通", jsonData);
+
+  if (jsonData.status === 200) {
+    console.log("tts成功", jsonData.auto_stand_url);
     // download mp3
     axios({
       method: "get",
-      url: res.data.auto_stand_url,
+      url: jsonData.auto_stand_url,
       responseType: "stream",
     })
       .then((response) => {
-        const file = fs.createWriteStream(`${fileName}.mp3`);
+        const file = fs.createWriteStream(`mp3s/${fileName}.mp3`);
         response.data.pipe(file);
 
         file.on("finish", () => {
@@ -256,20 +269,29 @@ async function ttsHandler(content: string, captcha: string, fileName: string) {
         });
       })
       .catch((error) => {
-        console.error("Error downloading file:", error.message);
+        console.error("Error downloading file:");
       });
   }
 }
 
 async function runMain() {
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 4; i <= 10; i++) {
+    let randomInt = Math.floor(1000 + Math.random() * 9000).toString();
     const content1 = fs.readFileSync(`source/${i}_1.docx`);
-    const captcha1 = await ttsCaptcha();
-    ttsHandler(content1.toString(), captcha1, `${i}_1`);
-    const content2 = fs.readFileSync(`source/${i}_1.docx`);
-    const captcha2 = await ttsCaptcha();
-    ttsHandler(content2.toString(), captcha2, `${i}_2`);
+    const captcha1 = await ttsCaptcha(randomInt);
+    await sleep(Math.random() * 10000); // 睡眠 n 秒
+    await ttsHandler(content1.toString(), randomInt, captcha1, `${i}_1`);
+    await sleep(Math.random() * 100000); // 睡眠 n 秒
+    const content2 = fs.readFileSync(`source/${i}_2.docx`);
+    const captcha2 = await ttsCaptcha(randomInt);
+    await sleep(Math.random() * 10000); // 睡眠 n 秒
+    await ttsHandler(content2.toString(), randomInt, captcha2, `${i}_2`);
+    await sleep(Math.random() * 100000); // 睡眠 n 秒
   }
 }
 
 runMain();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
