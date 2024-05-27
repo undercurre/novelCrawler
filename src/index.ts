@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import cheerio from "cheerio";
 import { spawn } from "child_process";
+import chaptersDir from "../chapters.json";
 
 // 配置代理
 const proxyAgent = new HttpsProxyAgent("http://127.0.0.1:7897/");
@@ -68,7 +69,7 @@ async function ttsCaptcha(ckey: string) {
                   resolve(cap);
                 })
                 .catch(() => {
-                  setTimeout(attempt, Math.random() * 10000);
+                  setTimeout(attempt, Math.random() * 20000);
                 });
             });
           } else {
@@ -86,12 +87,10 @@ async function ttsCaptcha(ckey: string) {
   });
 }
 
-const startChapterCode = 12758525;
-
-async function fetchContent(chapter: number) {
+async function fetchContent(chapter: string, count: number) {
   // 第一页
   const xiaoshuoPageHTML1 = await axiosInstance.get(
-    `http://www.qqxs8.co/19_19436/${startChapterCode + chapter}.html`,
+    `http://www.qqxs8.co${chapter}.html`,
     {
       headers: novelContentHeaders,
     }
@@ -99,7 +98,7 @@ async function fetchContent(chapter: number) {
 
   console.log(
     "请求第一页",
-    `http://www.qqxs8.co/19_19436/${startChapterCode + chapter}.html`,
+    `http://www.qqxs8.co${chapter}.html`,
     xiaoshuoPageHTML1.status
   );
 
@@ -112,12 +111,12 @@ async function fetchContent(chapter: number) {
     .join("\n");
 
   // 保存到文件
-  saveContentToFile(contentPart1, chapter, 1);
+  saveContentToFile(contentPart1, chapter, count, 1);
 
   // 第二页
 
   const xiaoshuoPageHTML2 = await axiosInstance.get(
-    `http://www.qqxs8.co/19_19436/${startChapterCode + chapter}_2.html`,
+    `http://www.qqxs8.co${chapter}_2.html`,
     {
       headers: novelContentHeaders,
     }
@@ -125,7 +124,7 @@ async function fetchContent(chapter: number) {
 
   console.log(
     "请求第二页",
-    `http://www.qqxs8.co/19_19436/${startChapterCode + chapter}_2.html`,
+    `http://www.qqxs8.co${chapter}_2.html`,
     xiaoshuoPageHTML2.status
   );
 
@@ -139,7 +138,7 @@ async function fetchContent(chapter: number) {
     .slice(0, -36);
 
   // 保存到文件
-  saveContentToFile(contentPart2, chapter, 2);
+  saveContentToFile(contentPart2, chapter, count, 2);
 }
 
 // 将内容分割成指定长度的段落
@@ -154,24 +153,64 @@ async function fetchContent(chapter: number) {
 // 保存内容到文件
 function saveContentToFile(
   content: string,
-  chapter: number,
+  chapter: string,
+  count: number,
   index: 1 | 2
 ): void {
-  const filePath = path.join(__dirname, `${chapter}_${index}.docx`);
+  if (content.length === 0) {
+    console.error(`${chapter}序列出错`);
+  }
+  const filePath = path.join(__dirname, `${count}_${index}.docx`);
   fs.writeFileSync(filePath, content, "utf8");
   console.log(`保存文件: ${filePath}`);
 }
 
-// 爬取小说内容
-// 异步函数，用于按顺序执行 fetchContent
-async function runSequentially(): Promise<void> {
-  for (let i = 104; i <= 104; i++) {
-    await fetchContent(i);
-  }
+// 爬取小说目录
+async function getDirOfNovel(url: string) {
+  const xiaoshuoDirPageHTML = await axiosInstance.get(url, {
+    headers: novelContentHeaders,
+  });
+
+  const $ = cheerio.load(xiaoshuoDirPageHTML.data);
+
+  const chapters: Record<number, string> = {};
+
+  $("#chapterList li a").map((i, element) => {
+    const href = $(element).attr("href")?.slice(0, -5);
+    const content = $(element).text();
+    // 使用正则表达式匹配“第”和“章”之间的数字
+    const match = content.match(/第(\d+)章/);
+    let chapterNum: number = 0;
+
+    if (match) {
+      chapterNum = Number(match[1]); // 提取匹配到的数字
+      console.log(`提取到的数字是: ${chapterNum}`);
+    } else {
+      console.log("没有找到匹配的数字");
+    }
+    if (href && content) chapters[chapterNum] = href;
+  });
+
+  // Convert the object to a JSON string
+  const json = JSON.stringify(chapters, null, 2);
+
+  // Write the JSON string to a file
+  fs.writeFile("chapters.json", json, "utf8", (err) => {
+    if (err) {
+      console.error(`Error writing to file: ${err.message}`);
+      return;
+    }
+    console.log("Chapters have been saved to chapters.json");
+  });
 }
 
-// 调用按顺序执行的函数
-// runSequentially();
+// 爬取小说内容
+// 异步函数，用于按顺序执行 fetchContent
+async function runSequentially(start: number, end: number): Promise<void> {
+  for (let i = start; i <= end; i++) {
+    await fetchContent((chaptersDir as Record<number, string>)[i], i);
+  }
+}
 
 // 调用python脚本解析验证码图
 function analyzeCaptcha() {
@@ -223,8 +262,8 @@ async function ttsHandler(
       user_bgm_config: {
         bgm_switch: true,
         bgm_sig:
-          "zqWEHqaIcCg76Eui_bqumnPZLxNnLs5mfRDQiWglkqkWWUIV9pwvBQYLXbMEGzYK1v5DpCnYtEzcDrRsz9TD2lMfvBbtchFRmdZQoC18CZSqUlXXvGHVV8EdDlzrP3ZArRtZEbswWaFqDv3-dE1GVwg8QkifEQdFOvulG68kcZut_kGIX4GDyaXrJPHRiZdi6ORTzyAty-ESzmJalX-XBtOAuXyi_mvZZR7RxrsA7kbJKiNCHu9zYN8ilDVcxLEzFulPOg-nkPAVU60D6Cb0UP8rjB4xp7LIgCjOe4QDg2s",
-        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15081.mp3",
+          "DPA3QJam9QUmOdwQdEgX_M7yqTh72HJf6-nxpiBz_y91yr8U1ksaGbwbEWXM_dst0flsiqiJ8JvgWzwIAIhEx0tjbwFfnxsRk6SF9NN4-5_tBl6m2APAkeB9knmhRHqLYntFHkBISHNmMDY4czGrHARTcOc9ebJUf-0Y36mmAOfSXJOqThfDwEhLW8s_QwXeLJFD8NtuBFvpTqSiqAdyRzTrGKsiAiTBeqo7ZTLtKxfoAQSind8kZaeHcrIdSpMkB0yujrbRwpkV6Vppypbp59g9VavnyfuqW2JRC0Qb1aU",
+        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15610.mp3",
         bgm_public_name: "M500001m0ZHz1UbLgg.mp3",
         bgm_volume: "4",
         bgm_loop_count: "-1",
@@ -248,7 +287,7 @@ async function ttsHandler(
   // 将字符串解析为 JSON 对象
   const jsonData = JSON.parse(dataStr);
 
-  console.log("tts接通", jsonData);
+  console.log("tts接通", jsonData.status);
 
   if (jsonData.status === 200) {
     console.log("tts成功", jsonData.auto_stand_url);
@@ -271,27 +310,110 @@ async function ttsHandler(
       .catch((error) => {
         console.error("Error downloading file:");
       });
+  } else {
+    throw new Error("request error");
   }
 }
 
-async function runMain() {
-  for (let i = 4; i <= 10; i++) {
+async function runMain(start: number, end: number) {
+  for (let i = start; i <= end; i++) {
     let randomInt = Math.floor(1000 + Math.random() * 9000).toString();
-    const content1 = fs.readFileSync(`source/${i}_1.docx`);
-    const captcha1 = await ttsCaptcha(randomInt);
-    await sleep(Math.random() * 10000); // 睡眠 n 秒
-    await ttsHandler(content1.toString(), randomInt, captcha1, `${i}_1`);
-    await sleep(Math.random() * 100000); // 睡眠 n 秒
-    const content2 = fs.readFileSync(`source/${i}_2.docx`);
-    const captcha2 = await ttsCaptcha(randomInt);
-    await sleep(Math.random() * 10000); // 睡眠 n 秒
-    await ttsHandler(content2.toString(), randomInt, captcha2, `${i}_2`);
-    await sleep(Math.random() * 100000); // 睡眠 n 秒
+    const content1_1 = fs
+      .readFileSync(`source/${i}_1.docx`)
+      .toString()
+      .substring(0, 700);
+    const content2_1 = fs
+      .readFileSync(`source/${i}_2.docx`)
+      .toString()
+      .substring(0, 700);
+    const content1_2 = fs
+      .readFileSync(`source/${i}_1.docx`)
+      .toString()
+      .substring(700);
+    const content2_2 = fs
+      .readFileSync(`source/${i}_2.docx`)
+      .toString()
+      .substring(700);
+    let success1 = false;
+    let success2 = false;
+    let success3 = false;
+    let success4 = false;
+    while (!success1) {
+      try {
+        const captcha1 = await ttsCaptcha(randomInt);
+        await sleep(Math.random() * 10000); // 睡眠 n 秒
+        await ttsHandler(
+          content1_1.toString(),
+          randomInt,
+          captcha1,
+          `${i}_1_1`
+        );
+        success1 = true;
+        await sleep(Math.random() * 100000); // 睡眠 n 秒
+      } catch (e) {
+        console.error(`${i}_1_1.docx出错`, "Retrying...");
+      }
+    }
+    while (!success2) {
+      try {
+        const captcha2 = await ttsCaptcha(randomInt);
+        await sleep(Math.random() * 10000); // 睡眠 n 秒
+        await ttsHandler(
+          content1_2.toString(),
+          randomInt,
+          captcha2,
+          `${i}_1_2`
+        );
+        success2 = true;
+        await sleep(Math.random() * 100000); // 睡眠 n 秒
+      } catch (e) {
+        console.error(`${i}_1_2.docx出错`, "Retrying...");
+      }
+    }
+    while (!success3) {
+      try {
+        const captcha3 = await ttsCaptcha(randomInt);
+        await sleep(Math.random() * 10000); // 睡眠 n 秒
+        await ttsHandler(
+          content2_1.toString(),
+          randomInt,
+          captcha3,
+          `${i}_2_1`
+        );
+        success3 = true;
+        await sleep(Math.random() * 100000); // 睡眠 n 秒
+      } catch (e) {
+        console.error(`${i}_2_1.docx出错`, "Retrying...");
+      }
+    }
+    while (!success4) {
+      try {
+        const captcha4 = await ttsCaptcha(randomInt);
+        await sleep(Math.random() * 10000); // 睡眠 n 秒
+        await ttsHandler(
+          content2_2.toString(),
+          randomInt,
+          captcha4,
+          `${i}_2_2`
+        );
+        success4 = true;
+        await sleep(Math.random() * 100000); // 睡眠 n 秒
+      } catch (e) {
+        console.error(`${i}_2_2.docx出错`, "Retrying...");
+      }
+    }
   }
 }
-
-runMain();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// 音频处理
+runMain(184, 204);
+
+// 爬小说
+
+// getDirOfNovel("http://www.qqxs8.co/19_19436/");
+
+// runSequentially(280, 520);
