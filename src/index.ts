@@ -224,8 +224,8 @@ function analyzeCaptcha() {
 
     // 获取Python脚本的输出
     pythonProcess.stdout.on("data", (data) => {
-      console.log("python分析脚本输出完成");
       const outText = data.slice(-6, -2).toString();
+      console.log("python分析脚本输出完成", outText);
       const regex = new RegExp("^\\d{4}$");
       if (regex.test(outText)) {
         resolve(outText as string);
@@ -262,8 +262,8 @@ async function ttsHandler(
       user_bgm_config: {
         bgm_switch: true,
         bgm_sig:
-          "DPA3QJam9QUmOdwQdEgX_M7yqTh72HJf6-nxpiBz_y91yr8U1ksaGbwbEWXM_dst0flsiqiJ8JvgWzwIAIhEx0tjbwFfnxsRk6SF9NN4-5_tBl6m2APAkeB9knmhRHqLYntFHkBISHNmMDY4czGrHARTcOc9ebJUf-0Y36mmAOfSXJOqThfDwEhLW8s_QwXeLJFD8NtuBFvpTqSiqAdyRzTrGKsiAiTBeqo7ZTLtKxfoAQSind8kZaeHcrIdSpMkB0yujrbRwpkV6Vppypbp59g9VavnyfuqW2JRC0Qb1aU",
-        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15610.mp3",
+          "HOc7rfCCmfw8OHl0EFIZUnmF1NU5KTdcubUnnHRZ0QauyDaj617a_Fg9vBH8ZZDbOohl5WSWu_8rkVgCenAvHU4eOTGSrfb3mtW6jhcs1yoK9nrMyR7rnS_GE8-34ixdyu2Z3ezxl63KRal-WHMl65x-M235L-B3H8u823PLHADMZ3m9432vms2UYMeQhuJmeRmnM6_nNQF7gXBB7A-OpZpAOnnPbzu5-Pj86K1hnyBhXmCphFaNEMwFqqEDgcBfm5HhL1xv5P_fc_ledOEx6s5qrQtLGy26NZxPepu5ayw",
+        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15886.mp3",
         bgm_public_name: "M500001m0ZHz1UbLgg.mp3",
         bgm_volume: "4",
         bgm_loop_count: "-1",
@@ -338,8 +338,11 @@ async function runMain(start: number, end: number) {
     let success2 = false;
     let success3 = false;
     let success4 = false;
+    if (content1_1.length < 700) success2 = true;
+    if (content2_1.length < 700) success4 = true;
     while (!success1) {
       try {
+        randomInt = Math.floor(1000 + Math.random() * 9000).toString();
         const captcha1 = await ttsCaptcha(randomInt);
         await sleep(Math.random() * 10000); // 睡眠 n 秒
         await ttsHandler(
@@ -356,6 +359,7 @@ async function runMain(start: number, end: number) {
     }
     while (!success2) {
       try {
+        randomInt = Math.floor(1000 + Math.random() * 9000).toString();
         const captcha2 = await ttsCaptcha(randomInt);
         await sleep(Math.random() * 10000); // 睡眠 n 秒
         await ttsHandler(
@@ -372,6 +376,7 @@ async function runMain(start: number, end: number) {
     }
     while (!success3) {
       try {
+        randomInt = Math.floor(1000 + Math.random() * 9000).toString();
         const captcha3 = await ttsCaptcha(randomInt);
         await sleep(Math.random() * 10000); // 睡眠 n 秒
         await ttsHandler(
@@ -388,6 +393,7 @@ async function runMain(start: number, end: number) {
     }
     while (!success4) {
       try {
+        randomInt = Math.floor(1000 + Math.random() * 9000).toString();
         const captcha4 = await ttsCaptcha(randomInt);
         await sleep(Math.random() * 10000); // 睡眠 n 秒
         await ttsHandler(
@@ -410,10 +416,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 // 音频处理
-runMain(184, 204);
+runMain(232, 520);
 
 // 爬小说
 
 // getDirOfNovel("http://www.qqxs8.co/19_19436/");
 
-// runSequentially(280, 520);
+// runSequentially(224, 224);
