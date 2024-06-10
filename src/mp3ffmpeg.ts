@@ -10,7 +10,7 @@ ffmpeg.setFfprobePath(
   "D:\\ffmpeg\\ffmpeg-7.0-essentials_build\\ffmpeg-7.0-essentials_build\\bin\\ffprobe"
 );
 
-const dirName = "101-104";
+const dirName = "2";
 
 // 指定音频文件所在的目录
 const audioDir = `./mp3s/${dirName}`;

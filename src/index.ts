@@ -141,15 +141,6 @@ async function fetchContent(chapter: string, count: number) {
   saveContentToFile(contentPart2, chapter, count, 2);
 }
 
-// 将内容分割成指定长度的段落
-// function splitContent(content: string, maxLength: number): string[] {
-//   const parts = [];
-//   for (let i = 0; i < content.length; i += maxLength) {
-//     parts.push(content.slice(i, i + maxLength));
-//   }
-//   return parts;
-// }
-
 // 保存内容到文件
 function saveContentToFile(
   content: string,
@@ -160,7 +151,7 @@ function saveContentToFile(
   if (content.length === 0) {
     console.error(`${chapter}序列出错`);
   }
-  const filePath = path.join(__dirname, `${count}_${index}.docx`);
+  const filePath = path.join(__dirname, `../source/${count}_${index}.docx`);
   fs.writeFileSync(filePath, content, "utf8");
   console.log(`保存文件: ${filePath}`);
 }
@@ -253,25 +244,12 @@ async function ttsHandler(
       user_select_announcer_id: "203",
       user_select_tts_setting_audio_format: "mp3",
       user_select_tts_setting_speed: "1.15",
-      user_select_tts_setting_volume: "1",
+      user_select_tts_setting_volume: "2.0",
       user_select_tts_setting_pitch: "1",
       user_input_captcha_text: captcha,
       user_input_captcha_key: ckey,
       user_input_paragraph_pause_time: "0",
       user_select_tts_voice_high_quality: "0",
-      user_bgm_config: {
-        bgm_switch: true,
-        bgm_sig:
-          "HOc7rfCCmfw8OHl0EFIZUnmF1NU5KTdcubUnnHRZ0QauyDaj617a_Fg9vBH8ZZDbOohl5WSWu_8rkVgCenAvHU4eOTGSrfb3mtW6jhcs1yoK9nrMyR7rnS_GE8-34ixdyu2Z3ezxl63KRal-WHMl65x-M235L-B3H8u823PLHADMZ3m9432vms2UYMeQhuJmeRmnM6_nNQF7gXBB7A-OpZpAOnnPbzu5-Pj86K1hnyBhXmCphFaNEMwFqqEDgcBfm5HhL1xv5P_fc_ledOEx6s5qrQtLGy26NZxPepu5ayw",
-        bgm_id: "23cebccd-d2ce-4624-89a8-a58cb5159b32_15886.mp3",
-        bgm_public_name: "M500001m0ZHz1UbLgg.mp3",
-        bgm_volume: "4",
-        bgm_loop_count: "-1",
-        bgm_offset: "0",
-        bgm_samplerate: "44100",
-        bgm_channels: "2",
-        bgm_list_count: "1",
-      },
     },
     {
       headers: {
@@ -338,8 +316,8 @@ async function runMain(start: number, end: number) {
     let success2 = false;
     let success3 = false;
     let success4 = false;
-    if (content1_1.length < 700) success2 = true;
-    if (content2_1.length < 700) success4 = true;
+    if (content1_1.length <= 700) success2 = true;
+    if (content2_1.length <= 700) success4 = true;
     while (!success1) {
       try {
         randomInt = Math.floor(1000 + Math.random() * 9000).toString();
@@ -415,8 +393,57 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extractFileIdentifier(filePath: string): string | null {
+  // 使用正则表达式匹配文件路径中的编号部分
+  const regex = /\\(\d+_\d+)\.docx$/;
+  const match = filePath.match(regex);
+
+  // 如果匹配成功，返回匹配的编号部分
+  if (match) {
+    return match[1];
+  }
+
+  // 如果匹配失败，返回 null
+  return null;
+}
+
+async function runMainCustom() {
+  // 获取目录中的所有txt文件
+  const getAllAudioFiles = (dir: string): string[] => {
+    return fs
+      .readdirSync(dir)
+      .filter((file) => path.extname(file).toLowerCase() === ".docx")
+      .map((file) => path.join(dir, file));
+  };
+
+  const inputFiles = getAllAudioFiles("./split");
+  console.log(inputFiles);
+  for (let i = 0; i < inputFiles.length; i++) {
+    // 提取编号部分
+    const identifier = extractFileIdentifier(inputFiles[i]);
+    if (!identifier) {
+      throw new Error("编号识别错误");
+    }
+    let randomInt = Math.floor(1000 + Math.random() * 9000).toString();
+    const content = fs.readFileSync(`split/${identifier}.docx`).toString();
+    let success1 = false;
+    while (!success1) {
+      try {
+        randomInt = Math.floor(1000 + Math.random() * 9000).toString();
+        const captcha1 = await ttsCaptcha(randomInt);
+        await sleep(Math.random() * 10000); // 睡眠 n 秒
+        await ttsHandler(content.toString(), randomInt, captcha1, identifier);
+        success1 = true;
+        await sleep(Math.random() * 100000); // 睡眠 n 秒
+      } catch (e) {
+        console.error(`${identifier}.docx出错`, "Retrying...");
+      }
+    }
+  }
+}
+
 // 音频处理
-runMain(232, 520);
+runMainCustom();
 
 // 爬小说
 
